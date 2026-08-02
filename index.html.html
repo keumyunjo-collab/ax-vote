@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AX 사례발표 라이브 투표</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#11141b;
+    --panel:#1a1f29;
+    --panel-hi:#222836;
+    --border:#2b3242;
+    --gold:#e8b04b;
+    --silver:#b9c0cb;
+    --bronze:#c98a55;
+    --live:#45d6c1;
+    --danger:#e8615a;
+    --text:#f3f1ea;
+    --muted:#8a92a3;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #1c2333 0%, var(--ink) 55%);
+    color:var(--text);
+    font-family:'Pretendard Variable','Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .display{font-family:'Space Grotesk','Pretendard Variable',sans-serif;}
+  #app{max-width:520px;margin:0 auto;min-height:100vh;padding:20px 18px 60px;position:relative;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 22px;}
+  .brand{display:flex;align-items:center;gap:9px;}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--live);box-shadow:0 0 0 4px rgba(69,214,193,.15);}
+  .brand span{font-size:13px;letter-spacing:.02em;color:var(--muted);font-weight:600;}
+  .exit-link{font-size:12.5px;color:var(--muted);text-decoration:none;cursor:pointer;border:1px solid var(--border);padding:6px 11px;border-radius:20px;}
+  .exit-link:hover{color:var(--text);border-color:var(--muted);}
+
+  h1{font-size:26px;line-height:1.28;margin:0 0 6px;letter-spacing:-.01em;}
+  .sub{color:var(--muted);font-size:14.5px;line-height:1.55;margin:0 0 28px;}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:14px;}
+  .card.hi{background:var(--panel-hi);}
+
+  .choice{display:flex;flex-direction:column;gap:12px;margin-top:8px;}
+  .choice-btn{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px 20px;text-align:left;cursor:pointer;color:var(--text);
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    transition:border-color .15s, transform .15s;
+  }
+  .choice-btn:hover{border-color:var(--live);transform:translateY(-1px);}
+  .choice-btn .cb-title{font-size:17px;font-weight:600;margin:0 0 4px;}
+  .choice-btn .cb-desc{font-size:13px;color:var(--muted);margin:0;}
+  .choice-btn .arrow{font-size:20px;color:var(--muted);}
+
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600;}
+  input[type=text],input[type=number],input[type=password]{
+    width:100%;background:var(--ink);border:1px solid var(--border);border-radius:12px;
+    padding:14px 15px;color:var(--text);font-size:17px;font-family:inherit;outline:none;
+  }
+  input[type=text]:focus,input[type=number]:focus,input[type=password]:focus{border-color:var(--live);}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--live);color:#0b1512;border:none;border-radius:12px;
+    padding:14px 20px;font-size:15.5px;font-weight:700;cursor:pointer;width:100%;
+    font-family:inherit;transition:filter .15s, transform .1s;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn:active{transform:scale(.98);}
+  .btn:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
+  .btn.secondary{background:transparent;border:1px solid var(--border);color:var(--text);}
+  .btn.secondary:hover{border-color:var(--muted);}
+  .btn.danger{background:var(--danger);color:#2a0d0b;}
+  .btn.gold{background:var(--gold);color:#2a1c04;}
+  .btn.small{padding:9px 14px;font-size:13px;width:auto;}
+
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px;letter-spacing:.02em;}
+  .badge.live{background:rgba(69,214,193,.14);color:var(--live);}
+  .badge.wait{background:rgba(138,146,163,.14);color:var(--muted);}
+  .badge.closed{background:rgba(232,97,90,.14);color:var(--danger);}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .pulse{animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.45;}}
+
+  .presenter-order{font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--live);font-weight:700;letter-spacing:.06em;margin-bottom:6px;}
+  .presenter-name{font-size:21px;font-weight:700;line-height:1.35;margin:0 0 4px;}
+  .presenter-meta{font-size:13px;color:var(--muted);}
+
+  .score-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:18px;}
+  .score-btn{
+    aspect-ratio:1;border-radius:12px;border:1px solid var(--border);background:var(--ink);
+    color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;
+    cursor:pointer;transition:all .12s;
+  }
+  .score-btn:hover{border-color:var(--live);background:rgba(69,214,193,.08);}
+  .score-btn.selected{background:var(--live);border-color:var(--live);color:#0b1512;transform:scale(1.04);}
+
+  .submitted-box{text-align:center;padding:10px 0 4px;}
+  .submitted-score{font-family:'Space Grotesk',sans-serif;font-size:52px;font-weight:700;color:var(--gold);line-height:1;margin:6px 0;}
+  .submitted-label{font-size:13px;color:var(--muted);}
+
+  .rank-row{display:flex;align-items:center;gap:13px;padding:12px 6px;border-bottom:1px solid var(--border);}
+  .rank-row:last-child{border-bottom:none;}
+  .rank-num{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;width:26px;text-align:center;color:var(--muted);flex-shrink:0;}
+  .rank-row.top1 .rank-num{color:var(--gold);font-size:19px;}
+  .rank-row.top2 .rank-num{color:var(--silver);}
+  .rank-row.top3 .rank-num{color:var(--bronze);}
+  .rank-name{flex:1;font-size:14.5px;font-weight:600;line-height:1.3;}
+  .rank-sub{font-size:11.5px;color:var(--muted);font-weight:400;margin-top:2px;}
+  .rank-score{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;color:var(--text);flex-shrink:0;}
+  .rank-votes{font-size:11px;color:var(--muted);flex-shrink:0;width:52px;text-align:right;}
+
+  .section-title{font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:26px 0 10px 2px;}
+
+  .empty{text-align:center;color:var(--muted);font-size:13.5px;padding:26px 10px;}
+
+  .admin-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);}
+  .admin-row:last-child{border-bottom:none;}
+  .admin-order{font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--muted);width:24px;font-size:13px;flex-shrink:0;}
+  .admin-row input[type=text]{padding:9px 11px;font-size:13.5px;flex:1;min-width:0;}
+  .admin-row .stat{font-size:11px;color:var(--muted);flex-shrink:0;width:56px;text-align:center;}
+  .admin-row.active{background:rgba(69,214,193,.06);border-radius:10px;padding-left:8px;padding-right:8px;margin:0 -8px;border-bottom-color:transparent;}
+
+  .control-bar{display:flex;gap:8px;margin-top:16px;}
+  .control-bar .btn{flex:1;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--panel-hi);border:1px solid var(--border);color:var(--text);
+    padding:12px 20px;border-radius:30px;font-size:13.5px;font-weight:600;
+    box-shadow:0 8px 30px rgba(0,0,0,.4);z-index:50;opacity:0;pointer-events:none;
+    transition:opacity .2s, transform .2s;max-width:88%;text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+  .hidden{display:none !important;}
+  .row{display:flex;align-items:center;gap:10px;}
+  .grow{flex:1;}
+  .divider{height:1px;background:var(--border);margin:18px 0;}
+  .footnote{font-size:11.5px;color:var(--muted);text-align:center;margin-top:22px;line-height:1.6;}
+  .conn-warn{background:rgba(232,97,90,.12);border:1px solid var(--danger);color:var(--danger);border-radius:12px;padding:12px 14px;font-size:12.5px;margin-bottom:14px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="configWarning" class="conn-warn hidden">
+    ⚠️ Firebase 설정이 비어 있어요. &lt;script&gt; 상단의 <b>firebaseConfig</b> 값을 본인 프로젝트 값으로 채워주세요.
+  </div>
+
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span><span>AX 사례발표 · 라이브 투표</span></div>
+    <a class="exit-link hidden" id="exitLink">처음으로</a>
+  </div>
+
+  <!-- HOME -->
+  <div id="screen-home">
+    <h1>실시간으로 참여하고<br>바로 순위를 확인하세요</h1>
+    <p class="sub">발표가 끝날 때마다 1~10점을 매겨주세요. 참석번호 하나당 발표자별로 한 번만 투표할 수 있어요.</p>
+    <div class="choice">
+      <div class="choice-btn" onclick="goVoterEntry()">
+        <div><p class="cb-title">🗳️ 참석자로 투표하기</p><p class="cb-desc">참석번호를 입력하고 투표에 참여합니다</p></div>
+        <span class="arrow">›</span>
+      </div>
+      <div class="choice-btn" onclick="goAdminPin()">
+        <div><p class="cb-title">🛠️ 운영자 화면</p><p class="cb-desc">발표 순서를 진행하고 결과를 관리합니다</p></div>
+        <span class="arrow">›</span>
+      </div>
+    </div>
+    <p class="footnote">참석번호는 중복투표 방지 용도로만 사용되며 별도로 저장·식별되지 않습니다.</p>
+  </div>
+
+  <!-- VOTER ENTRY -->
+  <div id="screen-voter-entry" class="hidden">
+    <h1>참석번호를 입력해주세요</h1>
+    <p class="sub">행사 안내를 받은 참석번호를 그대로 입력하면 됩니다.</p>
+    <div class="card">
+      <label for="attendInput">참석번호</label>
+      <input type="number" id="attendInput" placeholder="예: 37" inputmode="numeric" min="1">
+      <div style="margin-top:16px;">
+        <button class="btn" onclick="submitAttendNum()">입장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOTER MAIN -->
+  <div id="screen-voter-main" class="hidden">
+    <div class="row" style="justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:12.5px;color:var(--muted);">내 참석번호 <b style="color:var(--text)">#<span id="myNumLabel"></span></b></div>
+      <span id="voterBadge" class="badge wait"><span class="dot"></span>대기중</span>
+    </div>
+
+    <div class="card hi" id="voterPresenterCard">
+      <div class="empty">행사가 아직 시작되지 않았어요.<br>잠시만 기다려주세요.</div>
+    </div>
+
+    <div class="section-title">라이브 스코어보드</div>
+    <div class="card" id="voterLeaderboard"><div class="empty">아직 집계된 결과가 없어요</div></div>
+  </div>
+
+  <!-- ADMIN PIN -->
+  <div id="screen-admin-pin" class="hidden">
+    <h1>운영자 확인</h1>
+    <p class="sub">진행자에게 안내받은 운영자 PIN을 입력해주세요.</p>
+    <div class="card">
+      <label for="pinInput">PIN</label>
+      <input type="password" id="pinInput" inputmode="numeric" placeholder="••••">
+      <div style="margin-top:16px;">
+        <button class="btn" onclick="submitPin()">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN MAIN -->
+  <div id="screen-admin-main" class="hidden">
+    <h1 style="font-size:22px;">운영자 콘솔</h1>
+    <p class="sub">발표자를 선택해 투표를 시작·마감하고 결과를 집계하세요.</p>
+
+    <div class="card hi">
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <div class="presenter-order" id="admActiveOrder">진행 중인 발표 없음</div>
+          <div class="presenter-name" id="admActiveName" style="font-size:17px;">발표자를 선택해주세요</div>
+        </div>
+        <span id="adminBadge" class="badge wait"><span class="dot"></span>대기중</span>
+      </div>
+      <div class="row" style="margin-top:12px;gap:16px;">
+        <div style="font-size:12.5px;color:var(--muted);">실시간 참여 <b class="display" style="color:var(--live);font-size:15px;" id="admLiveCount">0</b>명</div>
+      </div>
+      <div class="control-bar">
+        <button class="btn danger" id="admCloseBtn" onclick="closeAndTally()" disabled>투표 마감 · 집계</button>
+      </div>
+    </div>
+
+    <div class="section-title">발표자 목록 (21명)</div>
+    <div class="card" id="admPresenterList" style="max-height:420px;overflow-y:auto;"></div>
+
+    <div class="section-title">전체 순위</div>
+    <div class="row" style="margin-bottom:8px;">
+      <button class="btn secondary small" onclick="refreshAdminLeaderboard()">순위 새로고침</button>
+    </div>
+    <div class="card" id="admLeaderboard"><div class="empty">아직 집계된 결과가 없어요</div></div>
+
+    <div class="section-title">위험 구역</div>
+    <div class="card">
+      <button class="btn secondary" style="border-color:var(--danger);color:var(--danger);" onclick="resetAllData()">전체 데이터 초기화</button>
+      <p class="footnote" style="margin-top:10px;">리허설 데이터를 지우고 처음부터 다시 시작할 때만 사용하세요. 되돌릴 수 없습니다.</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK (compat 버전 — 빌드 도구 없이 바로 사용 가능) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+/* =========================================================
+   ⚙️ Firebase 설정 — Firebase 콘솔 > 프로젝트 설정 > 내 앱에서
+   복사한 값을 아래에 붙여넣으세요.
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyAqZck4GuVC56tKZRoCdqTaevA1pgiFObc",
+  authDomain: "ax-live-vote.firebaseapp.com",
+  databaseURL: "https://ax-live-vote-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ax-live-vote",
+  storageBucket: "ax-live-vote.firebasestorage.app",
+  messagingSenderId: "1049260345841",
+  appId: "1:1049260345841:web:f4f7b4e9053843fb515c50"
+};
+
+const ADMIN_PIN = "1234"; // 운영자 PIN — 필요 시 이 값을 바꿔서 재배포하세요.
+const PRESENTER_COUNT = 21;
+
+let db = null;
+try{
+  if(firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("여기에")){
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+  } else {
+    document.getElementById('configWarning').classList.remove('hidden');
+  }
+}catch(e){
+  console.error("Firebase 초기화 실패", e);
+  document.getElementById('configWarning').classList.remove('hidden');
+}
+
+let myAttendNum = null;
+let voterPollTimer = null;
+let adminPollTimer = null;
+
+// ---------- firebase helpers (기존 storage 함수와 동일한 이름/역할 유지) ----------
+async function fbGet(path){
+  if(!db) return null;
+  try{
+    const snap = await db.ref(path).once('value');
+    return snap.exists() ? snap.val() : null;
+  }catch(e){ console.error("get failed", path, e); return null; }
+}
+async function fbSet(path, value){
+  if(!db) return false;
+  try{ await db.ref(path).set(value); return true; }
+  catch(e){ console.error("set failed", path, e); return false; }
+}
+async function fbRemove(path){
+  if(!db) return;
+  try{ await db.ref(path).remove(); }catch(e){}
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ---------- data model ----------
+async function ensurePresenters(){
+  let data = await fbGet('presenters');
+  if(data) return objToPresenterList(data);
+  const obj = {};
+  for(let i=1;i<=PRESENTER_COUNT;i++){ obj['p'+i] = {order:i, name:'발표자 '+i}; }
+  await fbSet('presenters', obj);
+  return objToPresenterList(obj);
+}
+function objToPresenterList(obj){
+  return Object.keys(obj).map(id=>({id, order:obj[id].order, name:obj[id].name}));
+}
+async function savePresenters(list){
+  const obj = {};
+  list.forEach(p=>{ obj[p.id] = {order:p.order, name:p.name}; });
+  await fbSet('presenters', obj);
+}
+async function getState(){
+  let data = await fbGet('state');
+  if(data) return data;
+  const def = {activePresenterId:null, votingOpen:false};
+  await fbSet('state', def);
+  return def;
+}
+async function saveState(state){ await fbSet('state', state); }
+
+async function getMyVote(presenterId, num){
+  const v = await fbGet('votes/'+presenterId+'/'+num);
+  return v===null || v===undefined ? null : Number(v);
+}
+async function setMyVote(presenterId, num, score){
+  return await fbSet('votes/'+presenterId+'/'+num, score);
+}
+async function countVotes(presenterId){
+  const data = await fbGet('votes/'+presenterId);
+  return data ? Object.keys(data).length : 0;
+}
+async function computeAndSaveResult(presenterId){
+  const data = await fbGet('votes/'+presenterId);
+  let sum = 0, count = 0;
+  if(data){
+    Object.values(data).forEach(v=>{ sum += Number(v); count++; });
+  }
+  const avg = count>0 ? (sum/count) : 0;
+  const result = {sum, count, avg};
+  await fbSet('results/'+presenterId, result);
+  return result;
+}
+async function getAllResults(){
+  const data = await fbGet('results');
+  return data || {};
+}
+
+// ---------- screen routing ----------
+function showScreen(id){
+  document.querySelectorAll('[id^="screen-"]').forEach(el=>el.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  document.getElementById('exitLink').classList.toggle('hidden', id==='screen-home');
+  if(id !== 'screen-voter-main' && voterPollTimer){ clearInterval(voterPollTimer); voterPollTimer=null; }
+  if(id !== 'screen-admin-main' && adminPollTimer){ clearInterval(adminPollTimer); adminPollTimer=null; }
+}
+document.getElementById('exitLink').onclick = ()=>{
+  myAttendNum = null;
+  showScreen('screen-home');
+};
+
+function goVoterEntry(){ showScreen('screen-voter-entry'); }
+function goAdminPin(){ showScreen('screen-admin-pin'); }
+
+// ---------- voter flow ----------
+function submitAttendNum(){
+  const el = document.getElementById('attendInput');
+  const n = parseInt(el.value, 10);
+  if(!n || n < 1){ toast("올바른 참석번호를 입력해주세요"); return; }
+  myAttendNum = n;
+  document.getElementById('myNumLabel').textContent = n;
+  showScreen('screen-voter-main');
+  refreshVoterScreen();
+  voterPollTimer = setInterval(refreshVoterScreen, 4000);
+}
+
+let voterRenderLock = false;
+async function refreshVoterScreen(){
+  if(voterRenderLock) return;
+  voterRenderLock = true;
+  try{
+    const presenters = await ensurePresenters();
+    const state = await getState();
+    const badge = document.getElementById('voterBadge');
+    const card = document.getElementById('voterPresenterCard');
+
+    if(!state.activePresenterId){
+      badge.className = 'badge wait'; badge.innerHTML = '<span class="dot"></span>대기중';
+      card.innerHTML = '<div class="empty">행사가 아직 시작되지 않았어요.<br>잠시만 기다려주세요.</div>';
+    } else {
+      const p = presenters.find(x=>x.id===state.activePresenterId);
+      const orderLabel = p ? ('발표 ' + String(p.order).padStart(2,'0')) : '';
+      const name = p ? p.name : '';
+
+      if(state.votingOpen){
+        badge.className = 'badge live'; badge.innerHTML = '<span class="dot pulse"></span>투표 진행중';
+        const myVote = await getMyVote(state.activePresenterId, myAttendNum);
+        const cnt = await countVotes(state.activePresenterId);
+        let inner = '<div class="presenter-order">'+orderLabel+'</div>';
+        inner += '<div class="presenter-name">'+escapeHtml(name)+'</div>';
+        inner += '<div class="presenter-meta">현재 '+cnt+'명 참여 중</div>';
+        if(myVote !== null){
+          inner += '<div class="submitted-box"><div class="submitted-label">내가 준 점수</div><div class="submitted-score display">'+myVote+'</div><div class="submitted-label">점수를 다시 누르면 수정돼요</div></div>';
+        }
+        inner += '<div class="score-grid" id="scoreGrid"></div>';
+        card.innerHTML = inner;
+        const grid = document.getElementById('scoreGrid');
+        for(let s=1; s<=10; s++){
+          const b = document.createElement('button');
+          b.className = 'score-btn' + (myVote===s ? ' selected' : '');
+          b.textContent = s;
+          b.onclick = ()=>castVote(state.activePresenterId, s);
+          grid.appendChild(b);
+        }
+      } else {
+        badge.className = 'badge closed'; badge.innerHTML = '<span class="dot"></span>투표 마감';
+        const results = await getAllResults();
+        const r = results[state.activePresenterId];
+        let inner = '<div class="presenter-order">'+orderLabel+'</div>';
+        inner += '<div class="presenter-name">'+escapeHtml(name)+'</div>';
+        if(r){
+          inner += '<div class="submitted-box"><div class="submitted-label">평균 점수</div><div class="submitted-score display">'+r.avg.toFixed(2)+'</div><div class="submitted-label">'+r.count+'명 참여</div></div>';
+        } else {
+          inner += '<div class="presenter-meta">집계 중이에요…</div>';
+        }
+        card.innerHTML = inner;
+      }
+    }
+
+    await renderLeaderboard(presenters, 'voterLeaderboard');
+  } finally {
+    voterRenderLock = false;
+  }
+}
+
+async function castVote(presenterId, score){
+  const ok = await setMyVote(presenterId, myAttendNum, score);
+  if(ok){ toast(score+"점을 제출했어요"); refreshVoterScreen(); }
+  else{ toast("제출에 실패했어요. 다시 시도해주세요"); }
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+async function renderLeaderboard(presenters, targetId){
+  const results = await getAllResults();
+  const rows = Object.keys(results).map(id=>{
+    const p = presenters.find(x=>x.id===id);
+    return {
+      id, name: p ? p.name : id, order: p ? p.order : 0,
+      avg: results[id].avg, count: results[id].count
+    };
+  });
+  rows.sort((a,b)=> b.avg - a.avg);
+  const el = document.getElementById(targetId);
+  if(rows.length===0){ el.innerHTML = '<div class="empty">아직 집계된 결과가 없어요</div>'; return; }
+  let html = '';
+  rows.forEach((r, i)=>{
+    const rank = i+1;
+    const cls = rank===1?'top1':rank===2?'top2':rank===3?'top3':'';
+    const medal = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
+    html += '<div class="rank-row '+cls+'">'+
+      '<div class="rank-num">'+medal+'</div>'+
+      '<div class="rank-name">'+escapeHtml(r.name)+'<div class="rank-sub">발표 '+String(r.order).padStart(2,'0')+'</div></div>'+
+      '<div class="rank-score display">'+r.avg.toFixed(2)+'</div>'+
+      '<div class="rank-votes">'+r.count+'표</div>'+
+    '</div>';
+  });
+  el.innerHTML = html;
+}
+
+// ---------- admin flow ----------
+function submitPin(){
+  const v = document.getElementById('pinInput').value;
+  if(v === ADMIN_PIN){
+    showScreen('screen-admin-main');
+    initAdmin();
+    adminPollTimer = setInterval(refreshAdminActive, 3000);
+  } else {
+    toast("PIN이 올바르지 않아요");
+  }
+}
+
+async function initAdmin(){
+  await renderAdminPresenterList();
+  await refreshAdminActive();
+  await refreshAdminLeaderboard();
+}
+
+async function renderAdminPresenterList(){
+  const presenters = await ensurePresenters();
+  const state = await getState();
+  const el = document.getElementById('admPresenterList');
+  el.innerHTML = '';
+  presenters.sort((a,b)=>a.order-b.order).forEach(p=>{
+    const row = document.createElement('div');
+    row.className = 'admin-row' + (state.activePresenterId===p.id ? ' active' : '');
+    row.innerHTML = `
+      <div class="admin-order display">${String(p.order).padStart(2,'0')}</div>
+      <input type="text" value="${p.name.replace(/"/g,'&quot;')}" data-id="${p.id}">
+      <button class="btn gold small" data-start="${p.id}">시작</button>
+    `;
+    el.appendChild(row);
+    row.querySelector('input').addEventListener('change', async (e)=>{
+      const list = await ensurePresenters();
+      const target = list.find(x=>x.id===p.id);
+      if(target){ target.name = e.target.value; await savePresenters(list); toast("이름을 저장했어요"); }
+    });
+    row.querySelector('[data-start]').addEventListener('click', ()=>startVoting(p.id));
+  });
+}
+
+async function startVoting(presenterId){
+  await saveState({activePresenterId: presenterId, votingOpen: true});
+  toast("투표를 시작했어요");
+  await renderAdminPresenterList();
+  await refreshAdminActive();
+}
+
+async function refreshAdminActive(){
+  const presenters = await ensurePresenters();
+  const state = await getState();
+  const badge = document.getElementById('adminBadge');
+  const orderEl = document.getElementById('admActiveOrder');
+  const nameEl = document.getElementById('admActiveName');
+  const closeBtn = document.getElementById('admCloseBtn');
+  const liveCountEl = document.getElementById('admLiveCount');
+
+  if(!state.activePresenterId){
+    orderEl.textContent = '진행 중인 발표 없음';
+    nameEl.textContent = '아래 목록에서 발표자를 선택해주세요';
+    badge.className = 'badge wait'; badge.innerHTML = '<span class="dot"></span>대기중';
+    closeBtn.disabled = true;
+    liveCountEl.textContent = '0';
+    return;
+  }
+  const p = presenters.find(x=>x.id===state.activePresenterId);
+  orderEl.textContent = p ? ('발표 '+String(p.order).padStart(2,'0')) : '';
+  nameEl.textContent = p ? p.name : '';
+  const cnt = await countVotes(state.activePresenterId);
+  liveCountEl.textContent = cnt;
+
+  if(state.votingOpen){
+    badge.className = 'badge live'; badge.innerHTML = '<span class="dot pulse"></span>투표 진행중';
+    closeBtn.disabled = false;
+  } else {
+    badge.className = 'badge closed'; badge.innerHTML = '<span class="dot"></span>마감됨';
+    closeBtn.disabled = true;
+  }
+}
+
+async function closeAndTally(){
+  const state = await getState();
+  if(!state.activePresenterId) return;
+  await saveState({activePresenterId: state.activePresenterId, votingOpen: false});
+  toast("집계 중…");
+  await computeAndSaveResult(state.activePresenterId);
+  toast("집계가 끝났어요");
+  await refreshAdminActive();
+  await renderAdminPresenterList();
+  await refreshAdminLeaderboard();
+}
+
+async function refreshAdminLeaderboard(){
+  const presenters = await ensurePresenters();
+  await renderLeaderboard(presenters, 'admLeaderboard');
+}
+
+async function resetAllData(){
+  if(!confirm("모든 투표·집계 데이터를 초기화할까요? 되돌릴 수 없어요.")) return;
+  await fbRemove('votes');
+  await fbRemove('results');
+  await saveState({activePresenterId:null, votingOpen:false});
+  toast("초기화했어요");
+  await renderAdminPresenterList();
+  await refreshAdminActive();
+  await refreshAdminLeaderboard();
+}
+</script>
+</body>
+</html>
