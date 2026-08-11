@@ -416,11 +416,18 @@ function submitAttendNum(){
   const el = document.getElementById('attendInput');
   const n = parseInt(el.value, 10);
   if(!n || n < 1){ toast("올바른 참석번호를 입력해주세요"); return; }
-  myAttendNum = n;
-  document.getElementById('myNumLabel').textContent = n;
-  showScreen('screen-voter-main');
-  refreshVoterScreen();
-  voterPollTimer = setInterval(refreshVoterScreen, 4000);
+  getSettings().then(settings=>{
+    const total = settings.totalAttendees || 150;
+    if(n > total){
+      toast("유효하지 않은 참석번호예요. 담당자에게 문의해주세요");
+      return;
+    }
+    myAttendNum = n;
+    document.getElementById('myNumLabel').textContent = n;
+    showScreen('screen-voter-main');
+    refreshVoterScreen();
+    voterPollTimer = setInterval(refreshVoterScreen, 4000);
+  });
 }
 
 let voterRenderLock = false;
