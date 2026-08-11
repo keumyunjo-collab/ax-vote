@@ -223,6 +223,15 @@
     <h1 style="font-size:22px;">운영자 콘솔</h1>
     <p class="sub">발표자를 선택해 투표를 시작·마감하고 결과를 집계하세요.</p>
 
+    <div class="card">
+      <label for="totalAttendInput">총 참석(투표) 인원 수</label>
+      <div class="row">
+        <input type="number" id="totalAttendInput" min="1" style="flex:1;">
+        <button class="btn small" style="width:auto;" onclick="saveTotalAttendees()">저장</button>
+      </div>
+      <p class="footnote" style="margin-top:8px;">미투표자 확인 시 1번부터 이 숫자까지 범위로 계산돼요.</p>
+    </div>
+
     <div class="card hi">
       <div class="row" style="justify-content:space-between;">
         <div>
@@ -235,8 +244,18 @@
         <div style="font-size:12.5px;color:var(--muted);">실시간 참여 <b class="display" style="color:var(--live);font-size:15px;" id="admLiveCount">0</b>명</div>
       </div>
       <div class="control-bar">
+        <button class="btn secondary" onclick="toggleVoteDetail()">투표 현황 보기</button>
         <button class="btn danger" id="admCloseBtn" onclick="closeAndTally()" disabled>투표 마감 · 집계</button>
       </div>
+    </div>
+
+    <div class="card hidden" id="voteDetailPanel">
+      <div class="section-title" style="margin-top:0;">투표 현황 (현재 발표자 기준)</div>
+      <div id="voteDetailSummary" style="font-size:13px;color:var(--muted);margin-bottom:14px;"></div>
+      <div style="font-size:12.5px;color:var(--live);font-weight:700;margin-bottom:6px;">✅ 투표 완료 (<span id="votedCount">0</span>명)</div>
+      <div id="votedList" style="font-size:13px;color:var(--text);word-break:break-all;margin-bottom:16px;line-height:1.8;"></div>
+      <div style="font-size:12.5px;color:var(--danger);font-weight:700;margin-bottom:6px;">⛔ 미투표 (<span id="notVotedCount">0</span>명)</div>
+      <div id="notVotedList" style="font-size:13px;color:var(--text);word-break:break-all;line-height:1.8;"></div>
     </div>
 
     <div class="section-title">발표자 목록 (21명)</div>
@@ -514,10 +533,66 @@ function submitPin(){
   }
 }
 
+let voteDetailOpen = false;
+
 async function initAdmin(){
+  const settings = await getSettings();
+  document.getElementById('totalAttendInput').value = settings.totalAttendees;
   await renderAdminPresenterList();
   await refreshAdminActive();
   await refreshAdminLeaderboard();
+}
+
+async function getSettings(){
+  let data = await fbGet('settings');
+  if(data) return data;
+  const def = {totalAttendees: 150};
+  await fbSet('settings', def);
+  return def;
+}
+async function saveTotalAttendees(){
+  const v = parseInt(document.getElementById('totalAttendInput').value, 10);
+  if(!v || v < 1){ toast("올바른 인원수를 입력해주세요"); return; }
+  await fbSet('settings', {totalAttendees: v});
+  toast("저장했어요");
+  if(voteDetailOpen){ await renderVoteDetail(); }
+}
+
+async function toggleVoteDetail(){
+  const panel = document.getElementById('voteDetailPanel');
+  voteDetailOpen = !voteDetailOpen;
+  if(voteDetailOpen){
+    panel.classList.remove('hidden');
+    await renderVoteDetail();
+  } else {
+    panel.classList.add('hidden');
+  }
+}
+
+async function renderVoteDetail(){
+  const state = await getState();
+  const summaryEl = document.getElementById('voteDetailSummary');
+  const votedListEl = document.getElementById('votedList');
+  const notVotedListEl = document.getElementById('notVotedList');
+  if(!state.activePresenterId){
+    summaryEl.textContent = '진행 중인 발표가 없어요.';
+    votedListEl.textContent = ''; notVotedListEl.textContent = '';
+    document.getElementById('votedCount').textContent = '0';
+    document.getElementById('notVotedCount').textContent = '0';
+    return;
+  }
+  const settings = await getSettings();
+  const total = settings.totalAttendees || 150;
+  const data = await fbGet('votes/'+state.activePresenterId);
+  const votedNums = data ? Object.keys(data).map(Number).sort((a,b)=>a-b) : [];
+  const votedSet = new Set(votedNums);
+  const notVoted = [];
+  for(let i=1; i<=total; i++){ if(!votedSet.has(i)) notVoted.push(i); }
+  summaryEl.textContent = '전체 '+total+'명 중 '+votedNums.length+'명 참여';
+  document.getElementById('votedCount').textContent = votedNums.length;
+  document.getElementById('notVotedCount').textContent = notVoted.length;
+  votedListEl.textContent = votedNums.length ? votedNums.join(', ') : '아직 없음';
+  notVotedListEl.textContent = notVoted.length ? notVoted.join(', ') : '전원 참여 완료 🎉';
 }
 
 async function renderAdminPresenterList(){
@@ -548,6 +623,7 @@ async function startVoting(presenterId){
   toast("투표를 시작했어요");
   await renderAdminPresenterList();
   await refreshAdminActive();
+  if(voteDetailOpen){ await renderVoteDetail(); }
 }
 
 async function refreshAdminActive(){
@@ -580,6 +656,8 @@ async function refreshAdminActive(){
     badge.className = 'badge closed'; badge.innerHTML = '<span class="dot"></span>마감됨';
     closeBtn.disabled = true;
   }
+
+  if(voteDetailOpen){ await renderVoteDetail(); }
 }
 
 async function closeAndTally(){
