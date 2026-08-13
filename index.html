@@ -94,18 +94,26 @@
   .presenter-name{font-size:21px;font-weight:700;line-height:1.35;margin:0 0 4px;}
   .presenter-meta{font-size:13px;color:var(--muted);}
 
-  .score-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:18px;}
-  .score-btn{
-    aspect-ratio:1;border-radius:12px;border:1px solid var(--border);background:var(--ink);
-    color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;
-    cursor:pointer;transition:all .12s;
-  }
-  .score-btn:hover{border-color:var(--live);background:rgba(69,214,193,.08);}
-  .score-btn.selected{background:var(--live);border-color:var(--live);color:#0b1512;transform:scale(1.04);}
-
   .submitted-box{text-align:center;padding:10px 0 4px;}
   .submitted-score{font-family:'Space Grotesk',sans-serif;font-size:52px;font-weight:700;color:var(--gold);line-height:1;margin:6px 0;}
   .submitted-label{font-size:13px;color:var(--muted);}
+
+  .cat-row{margin-bottom:16px;}
+  .cat-row-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+  .cat-row-head label{margin-bottom:0;font-size:13.5px;color:var(--text);font-weight:600;}
+  .cat-row-head .cat-max{color:var(--muted);font-weight:400;font-size:12px;}
+  .cat-row-head .cat-val{font-weight:700;color:var(--live);}
+  input[type=range]{width:100%;accent-color:var(--live);height:20px;}
+  .total-line{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:14px;border-top:1px solid var(--border);}
+  .total-line .lbl{font-size:14px;color:var(--muted);font-weight:600;}
+  .total-line .val{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;color:var(--gold);}
+  .breakdown-mini{font-size:12px;color:var(--muted);text-align:center;margin:2px 0 14px;}
+
+  .lb-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px;-webkit-overflow-scrolling:touch;}
+  .lb-tabs::-webkit-scrollbar{display:none;}
+  .lb-tab{flex-shrink:0;background:var(--ink);border:1px solid var(--border);color:var(--muted);
+    font-size:12px;font-weight:700;padding:7px 13px;border-radius:20px;cursor:pointer;white-space:nowrap;font-family:inherit;}
+  .lb-tab.active{background:var(--live);border-color:var(--live);color:#0b1512;}
 
   .rank-row{display:flex;align-items:center;gap:13px;padding:12px 6px;border-bottom:1px solid var(--border);}
   .rank-row:last-child{border-bottom:none;}
@@ -299,6 +307,17 @@ const firebaseConfig = {
 const ADMIN_PIN = "0987"; // 운영자 PIN — 필요 시 이 값을 바꿔서 재배포하세요.
 const PRESENTER_COUNT = 21;
 
+// 세부 평가 항목 및 항목별 만점 (합계 100점)
+const CATEGORIES = [
+  {key:"biz",        label:"업무기여도", max:30},
+  {key:"scale",       label:"확장성",     max:20},
+  {key:"creative",    label:"창의성",     max:20},
+  {key:"difficulty",  label:"구현난이도", max:20},
+  {key:"security",    label:"보안",       max:10}
+];
+const TOTAL_MAX = CATEGORIES.reduce((s,c)=>s+c.max, 0); // 100
+const LB_TOP_N = 5; // 순위 화면에는 상위 5명까지만 노출
+
 let db = null;
 try{
   if(firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("여기에")){
@@ -370,10 +389,10 @@ async function saveState(state){ await fbSet('state', state); }
 
 async function getMyVote(presenterId, num){
   const v = await fbGet('votes/'+presenterId+'/'+num);
-  return v===null || v===undefined ? null : Number(v);
+  return (v===null || v===undefined) ? null : v; // {biz,scale,creative,difficulty,security,total}
 }
-async function setMyVote(presenterId, num, score){
-  return await fbSet('votes/'+presenterId+'/'+num, score);
+async function setMyVote(presenterId, num, scoreObj){
+  return await fbSet('votes/'+presenterId+'/'+num, scoreObj);
 }
 async function countVotes(presenterId){
   const data = await fbGet('votes/'+presenterId);
@@ -381,12 +400,19 @@ async function countVotes(presenterId){
 }
 async function computeAndSaveResult(presenterId){
   const data = await fbGet('votes/'+presenterId);
-  let sum = 0, count = 0;
+  const sums = {total:0};
+  CATEGORIES.forEach(c=> sums[c.key]=0);
+  let count = 0;
   if(data){
-    Object.values(data).forEach(v=>{ sum += Number(v); count++; });
+    Object.values(data).forEach(v=>{
+      CATEGORIES.forEach(c=> sums[c.key] += Number(v[c.key]||0));
+      sums.total += Number(v.total||0);
+      count++;
+    });
   }
-  const avg = count>0 ? (sum/count) : 0;
-  const result = {sum, count, avg};
+  const avgs = {total: count>0 ? sums.total/count : 0};
+  CATEGORIES.forEach(c=> avgs[c.key] = count>0 ? sums[c.key]/count : 0);
+  const result = {count, avgs};
   await fbSet('results/'+presenterId, result);
   return result;
 }
@@ -455,19 +481,14 @@ async function refreshVoterScreen(){
         let inner = '<div class="presenter-order">'+orderLabel+'</div>';
         inner += '<div class="presenter-name">'+escapeHtml(name)+'</div>';
         inner += '<div class="presenter-meta">현재 '+cnt+'명 참여 중</div>';
-        if(myVote !== null){
-          inner += '<div class="submitted-box"><div class="submitted-label">내가 준 점수</div><div class="submitted-score display">'+myVote+'</div><div class="submitted-label">점수를 다시 누르면 수정돼요</div></div>';
+        if(myVote){
+          inner += '<div class="submitted-box"><div class="submitted-label">내가 제출한 총점</div><div class="submitted-score display">'+myVote.total+'</div>'
+                 + '<div class="breakdown-mini">'+CATEGORIES.map(c=>c.label+' '+(myVote[c.key]||0)).join(' · ')+'</div>'
+                 + '<div class="submitted-label">아래에서 점수를 수정하고 다시 제출할 수 있어요</div></div>';
         }
-        inner += '<div class="score-grid" id="scoreGrid"></div>';
+        inner += renderScoreForm(myVote);
         card.innerHTML = inner;
-        const grid = document.getElementById('scoreGrid');
-        for(let s=1; s<=10; s++){
-          const b = document.createElement('button');
-          b.className = 'score-btn' + (myVote===s ? ' selected' : '');
-          b.textContent = s;
-          b.onclick = ()=>castVote(state.activePresenterId, s);
-          grid.appendChild(b);
-        }
+        bindScoreFormEvents(state.activePresenterId);
       } else {
         badge.className = 'badge closed'; badge.innerHTML = '<span class="dot"></span>투표 마감';
         const results = await getAllResults();
@@ -475,7 +496,9 @@ async function refreshVoterScreen(){
         let inner = '<div class="presenter-order">'+orderLabel+'</div>';
         inner += '<div class="presenter-name">'+escapeHtml(name)+'</div>';
         if(r){
-          inner += '<div class="submitted-box"><div class="submitted-label">평균 점수</div><div class="submitted-score display">'+r.avg.toFixed(2)+'</div><div class="submitted-label">'+r.count+'명 참여</div></div>';
+          inner += '<div class="submitted-box"><div class="submitted-label">평균 총점</div><div class="submitted-score display">'+r.avgs.total.toFixed(1)+'</div>'
+                 + '<div class="breakdown-mini">'+CATEGORIES.map(c=>c.label+' '+r.avgs[c.key].toFixed(1)).join(' · ')+'</div>'
+                 + '<div class="submitted-label">'+r.count+'명 참여</div></div>';
         } else {
           inner += '<div class="presenter-meta">집계 중이에요…</div>';
         }
@@ -483,15 +506,52 @@ async function refreshVoterScreen(){
       }
     }
 
-    await renderLeaderboard(presenters, 'voterLeaderboard');
+    await renderLeaderboard(presenters, 'voter');
   } finally {
     voterRenderLock = false;
   }
 }
 
-async function castVote(presenterId, score){
-  const ok = await setMyVote(presenterId, myAttendNum, score);
-  if(ok){ toast(score+"점을 제출했어요"); refreshVoterScreen(); }
+// ---------- 세부 점수 입력 폼 (슬라이더 5개 + 총점) ----------
+function renderScoreForm(existingVote){
+  let html = '<div id="scoreForm" style="margin-top:14px;">';
+  CATEGORIES.forEach(c=>{
+    const val = existingVote ? (existingVote[c.key]||0) : 0;
+    html += '<div class="cat-row">'
+      + '<div class="cat-row-head"><label>'+c.label+' <span class="cat-max">(최대 '+c.max+')</span></label>'
+      + '<span class="cat-val display" id="val-'+c.key+'">'+val+'</span></div>'
+      + '<input type="range" min="0" max="'+c.max+'" value="'+val+'" id="slider-'+c.key+'" oninput="onSliderChange(\''+c.key+'\')">'
+      + '</div>';
+  });
+  const totalNow = existingVote ? existingVote.total : 0;
+  html += '<div class="total-line"><span class="lbl">총점</span><span class="val display" id="val-total">'+totalNow+' / '+TOTAL_MAX+'</span></div>';
+  html += '<button class="btn" style="margin-top:14px;" id="scoreSubmitBtn">'+(existingVote ? '점수 수정 제출' : '점수 제출')+'</button>';
+  html += '</div>';
+  return html;
+}
+function onSliderChange(key){
+  const v = document.getElementById('slider-'+key).value;
+  document.getElementById('val-'+key).textContent = v;
+  let total = 0;
+  CATEGORIES.forEach(c=>{ total += Number(document.getElementById('slider-'+c.key).value); });
+  document.getElementById('val-total').textContent = total + ' / ' + TOTAL_MAX;
+}
+function bindScoreFormEvents(presenterId){
+  const btn = document.getElementById('scoreSubmitBtn');
+  if(btn){ btn.onclick = ()=>submitScoreForm(presenterId); }
+}
+async function submitScoreForm(presenterId){
+  const scoreObj = {};
+  let total = 0;
+  CATEGORIES.forEach(c=>{
+    let v = Number(document.getElementById('slider-'+c.key).value);
+    v = Math.max(0, Math.min(c.max, v)); // 안전장치: 만점을 넘지 못하게 고정
+    scoreObj[c.key] = v;
+    total += v;
+  });
+  scoreObj.total = total;
+  const ok = await setMyVote(presenterId, myAttendNum, scoreObj);
+  if(ok){ toast(total+"점을 제출했어요"); refreshVoterScreen(); }
   else{ toast("제출에 실패했어요. 다시 시도해주세요"); }
 }
 
@@ -501,29 +561,69 @@ function escapeHtml(str){
   return d.innerHTML;
 }
 
-async function renderLeaderboard(presenters, targetId){
+// ---------- 순위표 (총점 탭 + 세부 항목 탭, 각 상위 5명) ----------
+const lbState = {
+  voter:{ tab:'total', presenters:[], results:{} },
+  adm:{ tab:'total', presenters:[], results:{} }
+};
+
+async function renderLeaderboard(presenters, prefix){
   const results = await getAllResults();
+  lbState[prefix].presenters = presenters;
+  lbState[prefix].results = results;
+  const container = document.getElementById(prefix+'Leaderboard');
+  if(!container.querySelector('.lb-tabs')){
+    container.innerHTML = leaderboardTabsHtml(prefix);
+  }
+  updateLbTabActiveClass(prefix);
+  renderLbList(prefix);
+}
+function leaderboardTabsHtml(prefix){
+  let tabs = '<div class="lb-tabs" id="'+prefix+'-tabs">'
+    + '<button class="lb-tab" data-key="total" onclick="switchLbTab(\''+prefix+'\',\'total\')">총점</button>';
+  CATEGORIES.forEach(c=>{
+    tabs += '<button class="lb-tab" data-key="'+c.key+'" onclick="switchLbTab(\''+prefix+'\',\''+c.key+'\')">'+c.label+'</button>';
+  });
+  tabs += '</div><div id="'+prefix+'-list"></div>';
+  return tabs;
+}
+function updateLbTabActiveClass(prefix){
+  const tabsEl = document.getElementById(prefix+'-tabs');
+  if(!tabsEl) return;
+  tabsEl.querySelectorAll('.lb-tab').forEach(b=>{
+    b.classList.toggle('active', b.dataset.key===lbState[prefix].tab);
+  });
+}
+function switchLbTab(prefix, key){
+  lbState[prefix].tab = key;
+  updateLbTabActiveClass(prefix);
+  renderLbList(prefix);
+}
+function renderLbList(prefix){
+  const {presenters, results, tab} = lbState[prefix];
   const rows = Object.keys(results).map(id=>{
     const p = presenters.find(x=>x.id===id);
-    return {
-      id, name: p ? p.name : id, order: p ? p.order : 0,
-      avg: results[id].avg, count: results[id].count
-    };
+    const r = results[id];
+    const score = tab==='total' ? r.avgs.total : r.avgs[tab];
+    return { id, name: p ? p.name : id, order: p ? p.order : 0, score, count: r.count };
   });
-  rows.sort((a,b)=> b.avg - a.avg);
-  const el = document.getElementById(targetId);
-  if(rows.length===0){ el.innerHTML = '<div class="empty">아직 집계된 결과가 없어요</div>'; return; }
+  rows.sort((a,b)=> b.score - a.score);
+  const top = rows.slice(0, LB_TOP_N);
+  const el = document.getElementById(prefix+'-list');
+  if(!el) return;
+  if(top.length===0){ el.innerHTML = '<div class="empty">아직 집계된 결과가 없어요</div>'; return; }
+  const maxForTab = tab==='total' ? TOTAL_MAX : CATEGORIES.find(c=>c.key===tab).max;
   let html = '';
-  rows.forEach((r, i)=>{
+  top.forEach((r, i)=>{
     const rank = i+1;
     const cls = rank===1?'top1':rank===2?'top2':rank===3?'top3':'';
     const medal = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
-    html += '<div class="rank-row '+cls+'">'+
-      '<div class="rank-num">'+medal+'</div>'+
-      '<div class="rank-name">'+escapeHtml(r.name)+'<div class="rank-sub">발표 '+String(r.order).padStart(2,'0')+'</div></div>'+
-      '<div class="rank-score display">'+r.avg.toFixed(2)+'</div>'+
-      '<div class="rank-votes">'+r.count+'표</div>'+
-    '</div>';
+    html += '<div class="rank-row '+cls+'">'
+      + '<div class="rank-num">'+medal+'</div>'
+      + '<div class="rank-name">'+escapeHtml(r.name)+'<div class="rank-sub">발표 '+String(r.order).padStart(2,'0')+'</div></div>'
+      + '<div class="rank-score display">'+r.score.toFixed(1)+' <span style="font-size:11px;color:var(--muted);font-weight:400;">/'+maxForTab+'</span></div>'
+      + '<div class="rank-votes">'+r.count+'표</div>'
+      + '</div>';
   });
   el.innerHTML = html;
 }
@@ -681,7 +781,7 @@ async function closeAndTally(){
 
 async function refreshAdminLeaderboard(){
   const presenters = await ensurePresenters();
-  await renderLeaderboard(presenters, 'admLeaderboard');
+  await renderLeaderboard(presenters, 'adm');
 }
 
 async function resetAllData(){
