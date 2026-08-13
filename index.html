@@ -388,11 +388,11 @@ async function getState(){
 async function saveState(state){ await fbSet('state', state); }
 
 async function getMyVote(presenterId, num){
-  const v = await fbGet('votes/'+presenterId+'/'+num);
+  const v = await fbGet('votes/'+presenterId+'/n'+num);
   return (v===null || v===undefined) ? null : v; // {biz,scale,creative,difficulty,security,total}
 }
 async function setMyVote(presenterId, num, scoreObj){
-  return await fbSet('votes/'+presenterId+'/'+num, scoreObj);
+  return await fbSet('votes/'+presenterId+'/n'+num, scoreObj);
 }
 async function countVotes(presenterId){
   const data = await fbGet('votes/'+presenterId);
@@ -405,6 +405,7 @@ async function computeAndSaveResult(presenterId){
   let count = 0;
   if(data){
     Object.values(data).forEach(v=>{
+      if(!v) return; // 예전 방식으로 저장된 빈 값(null) 방어
       CATEGORIES.forEach(c=> sums[c.key] += Number(v[c.key]||0));
       sums.total += Number(v.total||0);
       count++;
@@ -457,6 +458,7 @@ function submitAttendNum(){
 }
 
 let voterRenderLock = false;
+let lastVoterCardKey = null;
 async function refreshVoterScreen(){
   if(voterRenderLock) return;
   voterRenderLock = true;
@@ -469,6 +471,7 @@ async function refreshVoterScreen(){
     if(!state.activePresenterId){
       badge.className = 'badge wait'; badge.innerHTML = '<span class="dot"></span>대기중';
       card.innerHTML = '<div class="empty">행사가 아직 시작되지 않았어요.<br>잠시만 기다려주세요.</div>';
+      lastVoterCardKey = null;
     } else {
       const p = presenters.find(x=>x.id===state.activePresenterId);
       const orderLabel = p ? ('발표 ' + String(p.order).padStart(2,'0')) : '';
@@ -478,31 +481,45 @@ async function refreshVoterScreen(){
         badge.className = 'badge live'; badge.innerHTML = '<span class="dot pulse"></span>투표 진행중';
         const myVote = await getMyVote(state.activePresenterId, myAttendNum);
         const cnt = await countVotes(state.activePresenterId);
-        let inner = '<div class="presenter-order">'+orderLabel+'</div>';
-        inner += '<div class="presenter-name">'+escapeHtml(name)+'</div>';
-        inner += '<div class="presenter-meta">현재 '+cnt+'명 참여 중</div>';
-        if(myVote){
-          inner += '<div class="submitted-box"><div class="submitted-label">내가 제출한 총점</div><div class="submitted-score display">'+myVote.total+'</div>'
-                 + '<div class="breakdown-mini">'+CATEGORIES.map(c=>c.label+' '+(myVote[c.key]||0)).join(' · ')+'</div>'
-                 + '<div class="submitted-label">아래에서 점수를 수정하고 다시 제출할 수 있어요</div></div>';
+        const renderKey = state.activePresenterId + '|open|' + (myVote ? 'voted' : 'novote');
+
+        if(renderKey === lastVoterCardKey){
+          // 발표자·투표상태가 그대로면 화면을 다시 그리지 않고 참여 인원수만 갱신
+          // (슬라이더를 조작 중일 때 값이 리셋되는 것을 방지)
+          const liveEl = document.getElementById('liveCountText');
+          if(liveEl) liveEl.textContent = '현재 '+cnt+'명 참여 중';
+        } else {
+          let inner = '<div class="presenter-order">'+orderLabel+'</div>';
+          inner += '<div class="presenter-name">'+escapeHtml(name)+'</div>';
+          inner += '<div class="presenter-meta" id="liveCountText">현재 '+cnt+'명 참여 중</div>';
+          if(myVote){
+            inner += '<div class="submitted-box"><div class="submitted-label">내가 제출한 총점</div><div class="submitted-score display">'+myVote.total+'</div>'
+                   + '<div class="breakdown-mini">'+CATEGORIES.map(c=>c.label+' '+(myVote[c.key]||0)).join(' · ')+'</div>'
+                   + '<div class="submitted-label">아래에서 점수를 수정하고 다시 제출할 수 있어요</div></div>';
+          }
+          inner += renderScoreForm(myVote);
+          card.innerHTML = inner;
+          bindScoreFormEvents(state.activePresenterId);
+          lastVoterCardKey = renderKey;
         }
-        inner += renderScoreForm(myVote);
-        card.innerHTML = inner;
-        bindScoreFormEvents(state.activePresenterId);
       } else {
         badge.className = 'badge closed'; badge.innerHTML = '<span class="dot"></span>투표 마감';
         const results = await getAllResults();
         const r = results[state.activePresenterId];
-        let inner = '<div class="presenter-order">'+orderLabel+'</div>';
-        inner += '<div class="presenter-name">'+escapeHtml(name)+'</div>';
-        if(r){
-          inner += '<div class="submitted-box"><div class="submitted-label">평균 총점</div><div class="submitted-score display">'+r.avgs.total.toFixed(1)+'</div>'
-                 + '<div class="breakdown-mini">'+CATEGORIES.map(c=>c.label+' '+r.avgs[c.key].toFixed(1)).join(' · ')+'</div>'
-                 + '<div class="submitted-label">'+r.count+'명 참여</div></div>';
-        } else {
-          inner += '<div class="presenter-meta">집계 중이에요…</div>';
+        const renderKey = state.activePresenterId + '|closed|' + (r ? r.count : 0);
+        if(renderKey !== lastVoterCardKey){
+          let inner = '<div class="presenter-order">'+orderLabel+'</div>';
+          inner += '<div class="presenter-name">'+escapeHtml(name)+'</div>';
+          if(r){
+            inner += '<div class="submitted-box"><div class="submitted-label">평균 총점</div><div class="submitted-score display">'+r.avgs.total.toFixed(1)+'</div>'
+                   + '<div class="breakdown-mini">'+CATEGORIES.map(c=>c.label+' '+r.avgs[c.key].toFixed(1)).join(' · ')+'</div>'
+                   + '<div class="submitted-label">'+r.count+'명 참여</div></div>';
+          } else {
+            inner += '<div class="presenter-meta">집계 중이에요…</div>';
+          }
+          card.innerHTML = inner;
+          lastVoterCardKey = renderKey;
         }
-        card.innerHTML = inner;
       }
     }
 
@@ -691,7 +708,7 @@ async function renderVoteDetail(){
   const settings = await getSettings();
   const total = settings.totalAttendees || 150;
   const data = await fbGet('votes/'+state.activePresenterId);
-  const votedNums = data ? Object.keys(data).map(Number).sort((a,b)=>a-b) : [];
+  const votedNums = data ? Object.keys(data).map(k=>Number(k.replace(/^n/,''))).sort((a,b)=>a-b) : [];
   const votedSet = new Set(votedNums);
   const notVoted = [];
   for(let i=1; i<=total; i++){ if(!votedSet.has(i)) notVoted.push(i); }
