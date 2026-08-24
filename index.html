@@ -208,9 +208,6 @@
     <div class="card hi" id="voterPresenterCard">
       <div class="empty">행사가 아직 시작되지 않았어요.<br>잠시만 기다려주세요.</div>
     </div>
-
-    <div class="section-title">라이브 스코어보드</div>
-    <div class="card" id="voterLeaderboard"><div class="empty">아직 집계된 결과가 없어요</div></div>
   </div>
 
   <!-- ADMIN PIN -->
@@ -522,8 +519,6 @@ async function refreshVoterScreen(){
         }
       }
     }
-
-    await renderLeaderboard(presenters, 'voter');
   } finally {
     voterRenderLock = false;
   }
